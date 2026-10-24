@@ -1,0 +1,4 @@
+- Sylvain LE GAL (GRAP)
+- Jairo Llopis (Tecnativa)
+- Nitrokey GmbH (18.0 migration proposal)
+- Robson - ROBSOLUTION (20.0 port)
