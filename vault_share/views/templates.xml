@@ -19,7 +19,7 @@
                 <div class="card-body p-4">
                     <div class="text-center mb-4">
                         <span
-                            class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 text-primary mb-2"
+                            class="d-inline-flex align-items-center justify-content-center rounded-circle border text-primary mb-2"
                             style="width: 56px; height: 56px;"
                         >
                             <i class="fa fa-lock fa-2x" />
