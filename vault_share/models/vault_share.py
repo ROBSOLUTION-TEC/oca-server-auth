@@ -43,17 +43,14 @@ class VaultShare(models.Model):
     )
     log_ids = fields.One2many("vault.share.log", "share_id", "Log", readonly=True)
 
-    _sql_constraints = [
-        (
-            "value_check",
-            "CHECK(secret IS NOT NULL OR secret_file IS NOT NULL)",
-            "No value found",
-        ),
-    ]
+    _value_check = models.Constraint(
+        "CHECK(secret IS NOT NULL OR secret_file IS NOT NULL)",
+        "No value found",
+    )
 
     @api.depends("token")
     def _compute_url(self):
-        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+        base_url = self.env["ir.config_parameter"].sudo().get_str("web.base.url")
         for rec in self:
             rec.share_link = (
                 f"{base_url}/vault/share/{rec.token}" if rec.token else False

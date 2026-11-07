@@ -2,26 +2,22 @@
 // License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 import sh_utils from "../../common/utils.esm";
+import {t} from "@odoo/owl";
 import {useService} from "@web/core/utils/hooks";
 
 export default (x) => {
     class Extended extends x {
-        static defaultProps = {
-            ...x.defaultProps,
-            fieldPin: "pin",
-            fieldSalt: "salt",
-            fieldIterations: "iterations",
+        static vaultProps = {
+            ...x.vaultProps,
+            fieldIterations: t.string().optional("iterations"),
+            fieldPin: t.string().optional("pin"),
+            fieldSalt: t.string().optional("salt"),
         };
-        static props = {
-            ...x.props,
-            fieldIterations: {type: String, optional: true},
-            fieldPin: {type: String, optional: true},
-            fieldSalt: {type: String, optional: true},
-        };
+
         setup() {
             super.setup();
 
-            this.context = this.env.searchModel.context;
+            this.context = this.env.searchModel?.context || {};
             this.vault_utils = useService("vault_utils");
             this.vault = useService("vault");
         }

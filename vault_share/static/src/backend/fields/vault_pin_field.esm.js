@@ -1,7 +1,7 @@
 // © 2021-2024 Florian Kantelberg - initOS GmbH
 // License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-import {Component, useRef, useState} from "@odoo/owl";
+import {Component, proxy, signal} from "@odoo/owl";
 import VaultMixin from "@vault/backend/fields/vault_mixin.esm";
 import {_t} from "@web/core/l10n/translation";
 import {registry} from "@web/core/registry";
@@ -10,18 +10,20 @@ import {useService} from "@web/core/utils/hooks";
 
 export class VaultPinField extends VaultMixin(Component) {
     static template = "vault.FieldPinVault";
+
+    span = signal.ref();
+
     setup() {
         super.setup();
 
         this.action = useService("action");
-        this.span = useRef("span");
-        this.state = useState({
+        this.state = proxy({
             decrypted: false,
             decryptedValue: "",
         });
 
-        this.context = this.env.searchModel.context;
-        this.props.readonly = true;
+        this.context = this.env.searchModel?.context || {};
+        // The pin is always shown read-only (props can't be written in Owl 3)
     }
 
     get sendButton() {
@@ -100,7 +102,7 @@ export class VaultPinField extends VaultMixin(Component) {
      * Update the value shown
      */
     async showValue() {
-        this.span.el.innerHTML = this.formattedValue;
+        // Rendered from the reactive state (t-out, never as HTML)
     }
 }
 
