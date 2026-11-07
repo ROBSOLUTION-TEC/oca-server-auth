@@ -10,6 +10,7 @@ import {ListController} from "@web/views/list/list_controller";
 import {_t} from "@web/core/l10n/translation";
 import {patch} from "@web/core/utils/patch";
 import {rpc} from "@web/core/network/rpc";
+import {binaryContent} from "./fields/vault_mixin.esm";
 import {useService} from "@web/core/utils/hooks";
 
 patch(FormController.prototype, {
@@ -153,7 +154,7 @@ patch(FormController.prototype, {
 
         async function reencrypt(model, type) {
             // Load the entire data from the database
-            const records = await self.model.orm.searchRead(
+            const records = await self.orm.searchRead(
                 model,
                 [["vault_id", "=", record.resId]],
                 ["iv", "value", "name", "entry_name"],
@@ -166,7 +167,8 @@ patch(FormController.prototype, {
             for (const rec of records) {
                 const val = await self.vault_utils.sym_decrypt(
                     current_key,
-                    rec.value,
+                    // vault.file values are {content, ...} objects since 20.0
+                    binaryContent(rec.value),
                     rec.iv
                 );
                 if (val === null) {
@@ -196,7 +198,7 @@ patch(FormController.prototype, {
         this.ui.block();
         try {
             // Update the rights. Load without limit
-            const rights = await self.model.orm.searchRead(
+            const rights = await self.orm.searchRead(
                 "vault.right",
                 [["vault_id", "=", record.resId]],
                 ["public_key"],
@@ -249,7 +251,7 @@ patch(FormController.prototype, {
         const data = await this.importer.import(
             await this.vault.unwrap(record.data.master_key),
             record.data.name,
-            atob(record.data.content)
+            atob(binaryContent(record.data.content))
         );
 
         if (data) await record.update({crypted_content: JSON.stringify(data)});
@@ -265,7 +267,10 @@ patch(FormController.prototype, {
     async _vaultEnsureRightKey(root, right) {
         if (!root.data.master_key || right.data.key) return;
 
-        const params = {user_id: right.data.user_id[0]};
+        const user_id = right.data.user_id;
+        const params = {
+            user_id: Array.isArray(user_id) ? user_id[0] : user_id && user_id.id,
+        };
         const user = await rpc("/vault/public", params);
 
         if (!user || !user.public_key) throw new TypeError("User has no public key");
@@ -356,12 +361,13 @@ patch(FormController.prototype, {
      */
     setup() {
         this.vault_utils = useService("vault_utils");
-        if (this.props.resModel === "vault" && !this.vault_utils.supported()) {
-            this.props.preventCreate = true;
-            this.props.preventEdit = true;
-        }
 
         super.setup();
+        // Props are read-only since Owl 3: disable the actions directly
+        if (this.props.resModel === "vault" && !this.vault_utils.supported()) {
+            this.canCreate = false;
+            this.canEdit = false;
+        }
         this.ui = useService("ui");
         this.vault = useService("vault");
         this.importer = useService("vault_import");
@@ -372,7 +378,7 @@ patch(FormController.prototype, {
      */
     async create() {
         const _super = super.create.bind(this);
-        if (this.model.root.isDirty) await this._vaultAction();
+        if (await this.model.root.isDirty()) await this._vaultAction();
 
         const ret = await _super(...arguments);
         return ret;
@@ -380,32 +386,32 @@ patch(FormController.prototype, {
 
     async onPagerUpdate() {
         const _super = super.onPagerUpdate.bind(this);
-        if (this.model.root.isDirty) await this._vaultAction();
+        if (await this.model.root.isDirty()) await this._vaultAction();
         return await _super(...arguments);
     },
 
     async saveButtonClicked() {
         const _super = super.saveButtonClicked.bind(this);
-        if (this.model.root.isDirty) await this._vaultAction();
+        if (await this.model.root.isDirty()) await this._vaultAction();
         return await _super(...arguments);
     },
 
     async discard() {
         const _super = super.discard.bind(this);
         if (this.model.root.resModel === "vault.entry")
-            this.model.env.bus.trigger("ENCRYPT_FIELDS");
+            this.model.bus.trigger("ENCRYPT_FIELDS");
         return await _super(...arguments);
     },
 
     async beforeLeave() {
         const _super = super.beforeLeave.bind(this);
-        if (this.model.root.isDirty) await this._vaultAction();
+        if (await this.model.root.isDirty()) await this._vaultAction();
         return await _super(...arguments);
     },
 
     async beforeUnload() {
         const _super = super.beforeUnload.bind(this);
-        if (this.model.root.isDirty) await this._vaultAction();
+        if (await this.model.root.isDirty()) await this._vaultAction();
         return await _super(...arguments);
     },
 
@@ -425,6 +431,6 @@ patch(ListController.prototype, {
         super.setup();
         this.vault_utils = useService("vault_utils");
         if (this.props.resModel === "vault" && !this.vault_utils.supported())
-            this.props.showButtons = false;
+            this.activeActions = {...this.activeActions, create: false};
     },
 });

@@ -1,66 +1,65 @@
 // © 2021-2024 Florian Kantelberg - initOS GmbH
 // License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-import {Component, useEffect, useRef, useState} from "@odoo/owl";
+import {
+    Component,
+    onMounted,
+    onPatched,
+    proxy,
+    signal,
+    untrack,
+    useListener,
+} from "@odoo/owl";
 import {useBus, useService} from "@web/core/utils/hooks";
 import VaultMixin from "./vault_mixin.esm";
 import {_t} from "@web/core/l10n/translation";
-import {getActiveHotkey} from "@web/core/hotkeys/hotkey_service";
+import {getActiveHotkey} from "@web/core/hotkeys/hotkey_utils";
 import {registry} from "@web/core/registry";
 
 export class VaultField extends VaultMixin(Component) {
     static template = "vault.FieldVault";
+
+    input = signal.ref();
+    span = signal.ref();
+
     setup() {
         super.setup();
 
         this.action = useService("action");
-        this.input = useRef("input");
-        this.span = useRef("span");
-        this.state = useState({
+        this.state = proxy({
             decrypted: false,
             decryptedValue: "",
-            isDirty: false,
-            lastSetValue: null,
         });
+        // Not rendered: kept outside of the reactive state
+        this.isDirty = false;
+        this.lastSetValue = null;
 
-        const self = this;
-        useEffect(
-            (inputEl) => {
-                if (inputEl) {
-                    const onInput = self.onInput.bind(self);
-                    const onKeydown = self.onKeydown.bind(self);
+        useListener(this.input, "input", (ev) => this.onInput(ev));
+        useListener(this.input, "keydown", (ev) => this.onKeydown(ev));
 
-                    inputEl.addEventListener("input", onInput);
-                    inputEl.addEventListener("keydown", onKeydown);
-                    return () => {
-                        inputEl.removeEventListener("input", onInput);
-                        inputEl.removeEventListener("keydown", onKeydown);
-                    };
-                }
-            },
-            () => [self.input.el]
-        );
-
-        useEffect(() => {
-            const isInvalid = self.props.record
-                ? self.props.record.isFieldInvalid(self.props.name)
+        // Decrypt the value into the input after each render
+        const syncInput = () => {
+            const inputEl = untrack(this.input);
+            const isInvalid = this.props.record
+                ? this.props.record.isFieldInvalid(this.props.name)
                 : false;
-
-            if (self.input.el && !self.state.isDirty && !isInvalid) {
-                Promise.resolve(self.getValue()).then((val) => {
-                    if (!self.input.el) return;
-
-                    if (val) self.input.el.value = val;
+            if (inputEl && !this.isDirty && !isInvalid) {
+                Promise.resolve(this.getValue()).then((val) => {
+                    if (!untrack(this.input)) return;
+                    if (val) inputEl.value = val;
                     else if (val !== "")
-                        self.props.record.setInvalidField(self.props.name);
+                        this.props.record.setInvalidField(this.props.name);
                 });
-                self.state.lastSetValue = self.input.el.value;
+                this.lastSetValue = inputEl.value;
             }
-        });
+        };
+        onMounted(syncInput);
+        onPatched(syncInput);
+
         const {model} = this.props.record;
-        useBus(model.bus, "WILL_SAVE_URGENTLY", () => self.commitChanges(true));
+        useBus(model.bus, "WILL_SAVE_URGENTLY", () => this.commitChanges(true));
         useBus(model.bus, "NEED_LOCAL_CHANGES", (ev) =>
-            ev.detail.proms.push(self.commitChanges())
+            ev.detail.proms.push(this.commitChanges())
         );
         useBus(model.bus, "ENCRYPT_FIELDS", () => {
             this.state.decrypted = false;
@@ -68,12 +67,17 @@ export class VaultField extends VaultMixin(Component) {
         });
     }
 
+    /**
+     * Get the decrypted value or a placeholder
+     *
+     * @returns the decrypted value or a placeholder
+     */
     get value() {
         return this.props.record.data[this.props.name];
     }
 
     /**
-     * Open a dialog to generate a new secret
+     * Generate a new secret
      *
      * @param {Object} ev
      */
@@ -81,7 +85,7 @@ export class VaultField extends VaultMixin(Component) {
         ev.stopPropagation();
 
         const password = await this.vault_utils.generate_pass();
-        await this.storeValue(password);
+        if (password) await this.storeValue(password);
     }
 
     /**
@@ -146,10 +150,11 @@ export class VaultField extends VaultMixin(Component) {
     }
 
     /**
-     * Update the value shown
+     * Update the value shown to the user
      */
     async showValue() {
-        this.span.el.innerHTML = this.formattedValue;
+        // The span is rendered from the reactive state (t-out, never as HTML):
+        // writing to the DOM here would detach the node rendered by Owl
     }
 
     /**
@@ -159,9 +164,10 @@ export class VaultField extends VaultMixin(Component) {
      */
     onInput(ev) {
         ev.stopPropagation();
-        this.state.isDirty = ev.target.value !== this.state.lastSetValue;
-        if (this.state.isDirty)
-            this.props.record.model.bus.trigger("FIELD_IS_DIRTY", this.state.isDirty);
+
+        this.isDirty = ev.target.value !== this.lastSetValue;
+        if (this.isDirty)
+            this.props.record.model.bus.trigger("FIELD_IS_DIRTY", this.isDirty);
     }
 
     /**
@@ -170,21 +176,19 @@ export class VaultField extends VaultMixin(Component) {
      * @param {Boolean} urgent
      */
     async commitChanges(urgent) {
-        if (!this.input.el) return;
+        const inputEl = untrack(this.input);
+        if (!inputEl) return;
 
-        this.state.isDirty = this.input.el.value !== this.state.lastSetValue;
-        if (this.state.isDirty || urgent) {
-            this.state.isDirty = false;
+        this.isDirty = inputEl.value !== this.lastSetValue;
+        if (this.isDirty || urgent) {
+            this.isDirty = false;
 
-            const val = this.input.el.value || false;
-            if (val !== (this.state.lastSetValue || false)) {
-                this.state.lastSetValue = this.input.el.value;
-                this.state.decryptedValue = this.input.el.value;
+            const val = inputEl.value || false;
+            if (val !== (this.lastSetValue || false)) {
+                this.lastSetValue = inputEl.value;
+                this.state.decryptedValue = inputEl.value;
                 await this.storeValue(val);
-                this.props.record.model.bus.trigger(
-                    "FIELD_IS_DIRTY",
-                    this.state.isDirty
-                );
+                this.props.record.model.bus.trigger("FIELD_IS_DIRTY", this.isDirty);
             }
         }
     }

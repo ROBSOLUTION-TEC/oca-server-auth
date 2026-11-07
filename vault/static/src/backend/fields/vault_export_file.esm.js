@@ -1,38 +1,48 @@
 // © 2021-2024 Florian Kantelberg - initOS GmbH
 // License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-import {BinaryField, binaryField} from "@web/views/fields/binary/binary_field";
-import VaultMixin from "./vault_mixin.esm";
+import {
+    BinaryField,
+    binaryField,
+    binaryFieldProps,
+} from "@web/views/fields/binary/binary_field";
+import VaultMixin, {binaryContent} from "./vault_mixin.esm";
 import {_t} from "@web/core/l10n/translation";
 import {downloadFile} from "@web/core/network/download";
 import {registry} from "@web/core/registry";
 import {useService} from "@web/core/utils/hooks";
 
-export class VaultExportFile extends VaultMixin(BinaryField) {
+export class VaultExportFile extends VaultMixin(BinaryField, binaryFieldProps) {
     static template = "vault.FileVaultExport";
+
     setup() {
         super.setup();
+        this.orm = useService("orm");
         this.exporter = useService("vault_export");
         this.vault_utils = useService("vault_utils");
     }
 
     /**
-     * Get the value saved on db because the system is showing just the
-     * size on the props.
+     * Get the exported JSON content
      *
-     * @param {Object} ev
+     * @returns the JSON string
      */
     async _getCryptedValue() {
-        const crypted = await this.orm.read(
-            this.props.record.resModel,
-            [this.props.record.resId],
-            [this.props.name]
-        );
-        return crypted[0][this.props.name];
+        let value = binaryContent(this.props.record.data[this.props.name]);
+        if (!value && this.props.record.resId) {
+            const crypted = await this.orm.read(
+                this.props.record.resModel,
+                [this.props.record.resId],
+                [this.props.name]
+            );
+            value = binaryContent(crypted[0][this.props.name]);
+        }
+        // Binary values are base64 encoded since 20.0; the content is ASCII JSON
+        return value ? atob(value) : false;
     }
 
     /**
-     * Call the exporter and download the finalized file
+     * Encrypt the export and download it
      */
     async onFileDownload() {
         const cryptedValue = await this._getCryptedValue();
@@ -53,7 +63,6 @@ export class VaultExportFile extends VaultMixin(BinaryField) {
             const buffer = new ArrayBuffer(content.length);
             const arr = new Uint8Array(buffer);
             for (let i = 0; i < content.length; i++) arr[i] = content.charCodeAt(i);
-
             const blob = new Blob([arr]);
             await downloadFile(blob, this.fileName || "");
         }

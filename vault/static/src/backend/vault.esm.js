@@ -4,7 +4,7 @@
 import {_t} from "@web/core/l10n/translation";
 import {registry} from "@web/core/registry";
 import {rpc} from "@web/core/network/rpc";
-import {session} from "@web/session";
+import {user} from "@web/core/user";
 
 // Database name on the browser
 const Database = "vault";
@@ -333,7 +333,7 @@ const vaultService = {
                     let password = raw_password;
 
                     // Compatibility
-                    if (!this.version) password = session.username + "|" + password;
+                    if (!this.version) password = user.login + "|" + password;
 
                     const pass = await vault_utils.derive_key(
                         password,

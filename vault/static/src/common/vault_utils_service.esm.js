@@ -1,4 +1,4 @@
-import {Component, onMounted, useRef, useState} from "@odoo/owl";
+import {Component, onMounted, proxy, signal, t, useProps} from "@odoo/owl";
 import {Dialog} from "@web/core/dialog/dialog";
 import {_t} from "@web/core/l10n/translation";
 import {registry} from "@web/core/registry";
@@ -8,33 +8,45 @@ export class AskPassDialog extends Component {
     static template = "vault.AskPassDialog";
     static components = {Dialog};
 
+    props = useProps({
+        title: t.string().optional(),
+        confirm: t.boolean().optional(false),
+        onResolve: t.function(),
+        close: t.function(),
+    });
+
+    keyfileInput = signal.ref();
+
     setup() {
-        this.state = useState({
+        this.state = proxy({
             password: "",
             confirm: "",
             error: "",
         });
-        this.keyfileInput = useRef("keyfileInput");
     }
 
     async onConfirm() {
         const {confirm} = this.props;
         const password = this.state.password;
         let keyfileContent = null;
-        const input = this.keyfileInput.el;
+
+        const input = this.keyfileInput();
         if (input && input.files && input.files[0]) {
             const file = input.files[0];
             const text = await file.text();
             keyfileContent = utils.fromBinary(text);
         }
+
         if (!password && !keyfileContent) {
             this.state.error = _t("Missing password");
             return;
         }
+
         if (confirm && password && this.state.confirm !== password) {
             this.state.error = _t("The passwords aren't matching");
             return;
         }
+
         this.props.onResolve({
             password,
             keyfile: keyfileContent,
@@ -51,8 +63,14 @@ export class GeneratePassDialog extends Component {
     static template = "vault.GeneratePassDialog";
     static components = {Dialog};
 
+    props = useProps({
+        title: t.string().optional(),
+        onResolve: t.function(),
+        close: t.function(),
+    });
+
     setup() {
-        this.state = useState({
+        this.state = proxy({
             length: 15,
             big: true,
             small: true,
@@ -95,6 +113,7 @@ export class GeneratePassDialog extends Component {
             this.state.error = _t("Missing password");
             return;
         }
+
         this.props.onResolve(this.state.password);
         this.props.close();
     }
@@ -102,13 +121,13 @@ export class GeneratePassDialog extends Component {
 
 export const vaultUtilsService = {
     dependencies: ["dialog"],
-
     start(env, {dialog}) {
         function askpass(title, options = {}) {
             const props = {
-                title,
+                title: title ? String(title) : undefined,
                 confirm: Boolean(options.confirm),
             };
+
             return new Promise((resolve) => {
                 dialog.add(AskPassDialog, {
                     ...props,
@@ -118,7 +137,8 @@ export const vaultUtilsService = {
         }
 
         function generate_pass(title, options = {}) {
-            const props = {title, ...options};
+            const props = {...options, title: title ? String(title) : undefined};
+
             return new Promise((resolve) => {
                 dialog.add(GeneratePassDialog, {
                     ...props,

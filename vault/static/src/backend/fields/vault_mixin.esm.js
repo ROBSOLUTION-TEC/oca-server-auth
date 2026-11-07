@@ -1,37 +1,53 @@
 // © 2021-2024 Florian Kantelberg - initOS GmbH
 // License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
+import {t, useProps} from "@odoo/owl";
 import {_t} from "@web/core/l10n/translation";
 import {standardFieldProps} from "@web/views/fields/standard_field_props";
 import {useService} from "@web/core/utils/hooks";
 
-export default (x) => {
+/**
+ * Since 20.0 binary values are read as {content, size, filename} objects while
+ * the vault exchanges the encrypted file content as base64 string.
+ *
+ * @param {Object|String|Boolean} value
+ * @returns {String|Boolean} the base64 encoded content
+ */
+export function binaryContent(value) {
+    if (value && typeof value === "object") return value.content || false;
+    return value || false;
+}
+
+export const vaultMixinProps = {
+    fieldKey: t.string().optional("master_key"),
+    fieldIV: t.string().optional("iv"),
+};
+
+/**
+ * Mixin for the vault fields. `baseProps` is the props schema of the extended
+ * component; subclasses can extend `static vaultProps` to add/override props
+ * (Owl 3 has no static props/defaultProps anymore).
+ */
+export default (x, baseProps = standardFieldProps) => {
     class Extended extends x {
-        static props = {
-            ...standardFieldProps,
-            ...x.props,
-            fieldKey: {type: String, optional: true},
-            fieldIV: {type: String, optional: true},
+        static vaultProps = {
+            ...(x.vaultProps || baseProps),
+            ...vaultMixinProps,
         };
-        static defaultProps = {
-            ...x.defaultProps,
-            fieldIV: "iv",
-            fieldKey: "master_key",
-        };
-        static extractProps = ({attrs, field}) => {
-            const extract_props = x.extractProps || (() => ({}));
-            return {
-                ...extract_props({attrs, field}),
-                fieldKey: attrs.key,
-                fieldIV: attrs.iv,
-            };
-        };
+        props = useProps(this.constructor.vaultProps);
+
         setup() {
             super.setup();
+
             this.vault_utils = useService("vault_utils");
             this.vault = useService("vault");
         }
 
+        /**
+         * Check if the vault is supported
+         *
+         * @returns {Boolean}
+         */
         supported() {
             return this.vault_utils.supported();
         }
@@ -40,27 +56,31 @@ export default (x) => {
         get showButton() {
             return this.props.record.data[this.props.name];
         }
+
         get copyButton() {
             return this.props.record.data[this.props.name];
         }
+
         get sendButton() {
             return this.props.record.data[this.props.name];
         }
+
         get saveButton() {
             return this.props.record.data[this.props.name];
         }
+
         get generateButton() {
             return true;
         }
+
         get isNew() {
-            return Boolean(this.model.record.isNew);
+            return Boolean(this.props.record.isNew);
         }
 
         /**
          * Set the value by encrypting it
          *
          * @param {String} value
-         * @param {Object} options
          */
         async storeValue(value) {
             if (!this.vault_utils.supported()) return;
@@ -70,7 +90,7 @@ export default (x) => {
         }
 
         /**
-         * Send the value to an inbox
+         * Send the value with an internal user
          *
          * @param {String} value_field
          * @param {String} value_file
