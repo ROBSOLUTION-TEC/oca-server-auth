@@ -1,0 +1,4 @@
+id,name,model_id,group_id/id,operation,domain
+access_res_users_pass_history,Users: own password history,res.users.pass.history,base.group_user,cr,"[('user_id', '=', user.id)]"
+access_res_users_pass_history_portal,Portal: own password history,res.users.pass.history,base.group_portal,cr,"[('user_id', '=', user.id)]"
+access_res_users_pass_history_erp_manager,Access rights: create history for any user,res.users.pass.history,base.group_erp_manager,c,
