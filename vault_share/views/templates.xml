@@ -15,33 +15,72 @@
             <input type="hidden" id="iv" t-att-value="iv" />
             <input type="hidden" id="iterations" t-att-value="iterations" />
 
-            <div class="form-group" t-if="not error">
-                <label for="pin">Enter the pin:</label>
-                <input type="text" id="pin" class="form-control col-12 alert-danger" />
-            </div>
+            <div class="oe_login_form o_vault_public card shadow-sm my-4">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <span
+                            class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10 text-primary mb-2"
+                            style="width: 56px; height: 56px;"
+                        >
+                            <i class="fa fa-lock fa-2x" />
+                        </span>
+                        <h4 class="mb-1">Shared secret</h4>
+                        <p class="text-muted small mb-0">
+                            Enter the PIN you received. The secret is decrypted in your
+                            browser and is never sent in clear text.
+                        </p>
+                    </div>
 
-            <p class="alert alert-danger" t-if="error" role="alert" t-esc="error" />
-            <p
-                class="alert alert-success"
-                t-if="message"
-                role="status"
-                t-esc="message"
-            />
+                    <p
+                        class="alert alert-danger"
+                        t-if="error"
+                        role="alert"
+                        t-esc="error"
+                    />
+                    <p
+                        class="alert alert-success"
+                        t-if="message"
+                        role="status"
+                        t-esc="message"
+                    />
 
-            <div id="secret_group" class="form-group o_hidden" t-if="encrypted">
-                <label for="secret">Shared secret:</label>
-                <input
-                    type="text"
-                    id="secret"
-                    readonly="readonly"
-                    class="col-12 form-control"
-                />
-            </div>
+                    <div class="mb-3" t-if="not error">
+                        <label for="pin" class="form-label">PIN</label>
+                        <input
+                            type="text"
+                            id="pin"
+                            inputmode="numeric"
+                            autocomplete="off"
+                            autofocus="autofocus"
+                            class="form-control form-control-lg text-center font-monospace"
+                        />
+                        <div class="form-text">Press Tab or click outside the field to open.</div>
+                    </div>
 
-            <div id="file_group" class="form-group o_hidden" t-if="encrypted_file">
-                <label for="secret">Shared file:</label>
-                <div class="col-12">
-                    <a href="" id="secret_file" class="form-control" />
+                    <div id="secret_group" class="mb-3 o_hidden" t-if="encrypted">
+                        <label for="secret" class="form-label">Secret</label>
+                        <input
+                            type="text"
+                            id="secret"
+                            readonly="readonly"
+                            class="form-control font-monospace"
+                            onclick="this.select()"
+                        />
+                    </div>
+
+                    <div id="file_group" class="mb-3 o_hidden" t-if="encrypted_file">
+                        <label class="form-label">File</label>
+                        <div>
+                            <a href="" id="secret_file" class="btn btn-outline-primary w-100">
+                                <i class="fa fa-download me-1" />
+                            </a>
+                        </div>
+                    </div>
+
+                    <p class="text-muted small text-center mb-0 mt-3">
+                        <i class="fa fa-shield me-1" />The link expires after the date or the
+                        number of accesses defined by the sender.
+                    </p>
                 </div>
             </div>
         </t>

@@ -47,6 +47,10 @@
                     <field name="allowed_share" invisible="1" />
                     <field name="allowed_write" invisible="1" />
                     <field name="allowed_delete" invisible="1" />
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" placeholder="e.g. Firewall admin" /></h1>
+                    </div>
 
                     <group>
                         <group>
@@ -61,7 +65,6 @@
                                 options="{'no_open': true, 'no_create_edit': true, 'no_quick_create': true}"
                             />
                             <field name="complete_name" invisible="1" />
-                            <field name="name" />
                             <field name="url" widget="url" />
                             <field name="tags" widget="many2many_tags" />
                         </group>
