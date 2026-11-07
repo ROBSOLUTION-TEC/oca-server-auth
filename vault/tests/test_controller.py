@@ -8,7 +8,9 @@ from unittest.mock import MagicMock
 from odoo.tools import mute_logger
 
 from odoo.addons.base.tests.common import BaseCommon
-from odoo.addons.website.tools import MockRequest
+from odoo.tools.binary import BinaryBytes
+
+from odoo.addons.http_routing.tests.common import MockRequest
 
 from ..controllers import main
 
@@ -16,6 +18,10 @@ _logger = logging.getLogger(__name__)
 
 
 class TestController(BaseCommon):
+    # Since 20.0 BaseCommon runs the tests as a plain internal user; the tests
+    # below were written for the superuser environment used up to 18.0
+    _test_user_groups = ()
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -45,7 +51,7 @@ class TestController(BaseCommon):
                 "key": "4",
                 "iv": "1",
                 "secret": "old secret",
-                "secret_file": "old file",
+                "secret_file": BinaryBytes(b"old file"),
                 "accesses": 100,
             }
         )
@@ -89,14 +95,15 @@ class TestController(BaseCommon):
             self.assertIn("error", response)
 
             self.assertEqual(self.inbox.secret, "old secret")
-            self.assertEqual(self.inbox.secret_file, b"old file")
+            self.assertEqual(self.inbox.secret_file.content, b"old file")
 
             # Store something successfully
             request_mock.params.update({"iv": "iv", "key": "key"})
             response = load(self.controller.vault_inbox(self.inbox.token))
             self.assertNotIn("error", response)
             self.assertEqual(self.inbox.secret, "secret")
-            self.assertEqual(self.inbox.secret_file, b"file")
+            # The browser posts the encrypted file base64 encoded
+            self.assertEqual(self.inbox.secret_file.to_base64(), "file")
 
             # Test a duplicate inbox
             self.inbox.copy().token = self.inbox.token
@@ -137,13 +144,13 @@ class TestController(BaseCommon):
                 {"entry_id": entry.id, "name": "Test", "value": "hello"}
             )
             file = self.env["vault.file"].create(
-                {"entry_id": entry.id, "name": "Test", "value": b"hello"}
+                {"entry_id": entry.id, "name": "Test", "value": BinaryBytes(b"hello")}
             )
             right.write({"key": "invalid"})
 
             self.controller.vault_replace(None)
             self.assertEqual(field.value, "hello")
-            self.assertEqual(file.value, b"hello")
+            self.assertEqual(file.value.content, b"hello")
 
             vault.reencrypt_required = True
             self.controller.vault_replace(
@@ -154,7 +161,7 @@ class TestController(BaseCommon):
                 ]
             )
             self.assertEqual(field.value, "test")
-            self.assertEqual(file.value, b"test")
+            self.assertEqual(file.value.to_base64(), "test")
             self.assertEqual(right.key, "changed")
             self.assertFalse(vault.reencrypt_required)
 

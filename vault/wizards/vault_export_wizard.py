@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 
 from odoo import api, fields, models
+from odoo.tools.binary import BinaryBytes, BinaryValue
 
 _logger = logging.getLogger(__name__)
 
@@ -26,10 +27,12 @@ class ExportWizard(models.TransientModel):
     @api.onchange("vault_id", "entry_id")
     def _onchange_content(self):
         for rec in self.with_context(skip_log=True):
-            rec.content = self._export_content(
-                rec.vault_id,
-                rec.entry_id,
-                rec.include_childs,
+            rec.content = BinaryBytes(
+                self._export_content(
+                    rec.vault_id,
+                    rec.entry_id,
+                    rec.include_childs,
+                ).encode()
             )
 
     def _default_name(self):
@@ -49,6 +52,9 @@ class ExportWizard(models.TransientModel):
     @api.model
     def _export_field(self, rec):
         def ensure_string(x):
+            if isinstance(x, BinaryValue):
+                # Encrypted files are exchanged base64 encoded
+                return x.to_base64() if x else False
             return x.decode() if isinstance(x, bytes) else x
 
         return {f: ensure_string(rec[f]) for f in ["name", "iv", "value"]}

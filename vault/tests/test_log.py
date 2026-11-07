@@ -9,6 +9,10 @@ _logger = logging.getLogger(__name__)
 
 
 class TestLog(BaseCommon):
+    # Since 20.0 BaseCommon runs the tests as a plain internal user; the tests
+    # below were written for the superuser environment used up to 18.0
+    _test_user_groups = ()
+
     def test_not_implemeneted(self):
         with self.assertRaises(NotImplementedError):
             self.env["vault.abstract"].log_entry("test")

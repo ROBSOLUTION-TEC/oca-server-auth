@@ -44,25 +44,16 @@ class VaultInbox(models.Model):
     )
     log_ids = fields.One2many("vault.inbox.log", "inbox_id", "Log", readonly=True)
 
-    _sql_constraints = [
-        (
-            "value_check",
-            "CHECK(secret IS NOT NULL OR secret_file IS NOT NULL)",
-            "No value found",
-        ),
-    ]
+    _value_check = models.Constraint(
+        "CHECK(secret IS NOT NULL OR secret_file IS NOT NULL)",
+        "No value found",
+    )
 
     @api.depends("token")
     def _compute_inbox_link(self):
-        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+        base_url = self.env["ir.config_parameter"].sudo().get_str("web.base.url")
         for rec in self:
             rec.inbox_link = f"{base_url}/vault/inbox/{rec.token}"
-
-    def read(self, *args, **kwargs):
-        # Always load the binary instead of the size
-        return super(VaultInbox, self.with_context(bin_size=False)).read(
-            *args, **kwargs
-        )
 
     @api.model
     def find_inbox(self, token):

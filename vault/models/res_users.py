@@ -32,7 +32,7 @@ class ResUsers(models.Model):
 
     @api.depends("inbox_token")
     def _compute_inbox_link(self):
-        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+        base_url = self.env["ir.config_parameter"].sudo().get_str("web.base.url")
         for rec in self:
             rec.inbox_link = f"{base_url}/vault/inbox/{rec.inbox_token}"
 
