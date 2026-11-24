@@ -80,13 +80,19 @@ class TestPasswordSecuritySignup(HttpCase):
             "partner_id": partner.id,
         }
 
+        Users = self.env["res.users"]
+        if "website" in self.env and not self.env.context.get("host_id"):
+            website = self.env["website"].search([], limit=1)
+            if website:
+                Users = Users.with_context(host_id=website.id)
+
         # Weak password: SignupError is raised
         with self.assertRaises(SignupError):
-            self.env["res.users"].signup(vals)
+            Users.signup(vals)
 
         # Stronger password: no error raised
         vals["password"] = "asdQWE12345_3"
-        login, _pwd = self.env["res.users"].signup(vals)
+        login, _pwd = Users.signup(vals)
 
         # check created user
         created_user = self.env["res.users"].search([("login", "=", "test_user")])

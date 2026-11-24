@@ -164,4 +164,7 @@ class TestResUsers(TransactionCase):
                 "name": "test1",
             }
         )
-        test1.unlink()
+        if "calendar.user" in self.env:
+            test1.sudo().unlink()
+        else:
+            test1.unlink()

@@ -132,7 +132,9 @@ class TestPasswordSecurityLogin(HttpCase):
 
         # Try to access just a page: user kicked out
         req_page2 = self.url_open("/web")
-        self.assertTrue(req_page2.request.path_url.startswith("/web/login"))
+        self.assertRegex(
+            req_page2.request.path_url, r"^(/[a-z]{2}(_[A-Z]{2})?)?/web/login\b"
+        )
         self.assertEqual(req_page2.status_code, 200)
 
     def test_07_web_login_redirect(self):
@@ -152,7 +154,9 @@ class TestPasswordSecurityLogin(HttpCase):
 
         # Try to access just a page: user kicked out
         req_page = self.url_open("/web")
-        self.assertTrue(req_page.request.path_url.startswith("/web/login"))
+        self.assertRegex(
+            req_page.request.path_url, r"^(/[a-z]{2}(_[A-Z]{2})?)?/web/login\b"
+        )
         self.assertEqual(req_page.status_code, 200)
 
     def test_08_web_login_expire_pass_reset_token_is_valid(self):
