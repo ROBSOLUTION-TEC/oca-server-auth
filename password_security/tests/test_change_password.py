@@ -86,7 +86,9 @@ class TestPasswordSecurityChange(HttpCase):
         # Try to reload page: user kicked out
         res_page2 = self.url_open("/web")
         res_page2.raise_for_status()
-        self.assertTrue(res_page2.request.path_url.startswith("/web/login"))
+        self.assertRegex(
+            res_page2.request.path_url, r"^(/[a-z]{2}(_[A-Z]{2})?)?/web/login\b"
+        )
         self.assertEqual(res_page2.status_code, 200)
 
     def test_04_change_password_check_password_history(self):
