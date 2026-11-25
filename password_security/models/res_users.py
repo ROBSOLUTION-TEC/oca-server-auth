@@ -165,7 +165,8 @@ class ResUsers(models.Model):
 
     def action_expire_password(self):
         for user in self:
-            user.mapped("partner_id").signup_prepare(signup_type="reset")
+            # sudo: res.partner - allow portal/restricted users to prepare password reset token
+            user.sudo().mapped("partner_id").signup_prepare(signup_type="reset")
 
     def _validate_pass_reset(self):
         """It provides validations before initiating a pass reset email

@@ -1,2 +1,3 @@
 id,name,model_id,group_id/id,operation,domain
-access_impersonate_log,impersonate logs,impersonate.log,base.group_user,ru,
+access_impersonate_log,impersonate logs,impersonate.log,impersonate_login.group_impersonate_login,r,
+access_impersonate_log_system,impersonate logs admin,impersonate.log,base.group_system,ru,

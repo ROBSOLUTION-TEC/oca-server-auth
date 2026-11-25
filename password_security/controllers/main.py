@@ -41,7 +41,10 @@ class PasswordSecurityHome(AuthSignupHome):
         # value is stale. _generate_signup_token() signs login_date into the
         # token, and a stale one is rejected as an invalid signup token.
         request.env.user.invalidate_recordset(["login_date", "log_ids"])
-        redirect = request.env.user.partner_id._get_signup_url()
+        # sudo: res.partner - allow portal/restricted users to retrieve reset redirect URL
+        redirect = request.env.user.partner_id.sudo()._get_signup_url_for_action()[
+            request.env.user.partner_id.id
+        ]
         return request.redirect(redirect)
 
     @http.route()

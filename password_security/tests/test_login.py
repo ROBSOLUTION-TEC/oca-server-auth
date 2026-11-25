@@ -4,9 +4,8 @@
 from datetime import datetime, timedelta
 from unittest import mock
 
-from odoo import http
-from odoo.http.session import session_store
 from odoo.exceptions import UserError, ValidationError
+from odoo.http.session import session_store
 from odoo.modules.registry import Registry
 from odoo.tests.common import HOST, HttpCase, Opener, get_db_name, new_test_user, tagged
 
@@ -224,4 +223,38 @@ class TestPasswordSecurityLogin(HttpCase):
         # We got kicked out to the reset password page...
         self.assertIn("/web/reset_password", response.request.path_url)
         # ...and the token it was given must actually be usable
+        self.assertNotIn("Invalid signup token", response.text)
+
+    def test_06_portal_expired_password_reset_redirect(self):
+        """Portal user with expired password bounces cleanly to /web/reset_password."""
+        portal_login = "portal_expired_pwd"
+        portal_pw = "!PortalExpired123"
+        portal_user = new_test_user(
+            self.env,
+            portal_login,
+            password=portal_pw,
+            groups="base.group_portal",
+        )
+        with Registry(get_db_name()).cursor() as cr:
+            env = self.env(cr)
+            user = env["res.users"].browse(portal_user.id)
+            user.password_write_date = datetime.now() - timedelta(days=3)
+            env["ir.config_parameter"].sudo().set_int(
+                "password_security.expiration_days", 1
+            )
+        self.session = session_store().new()
+        self.opener = Opener(self)
+        self.opener.cookies.set("session_id", self.session.sid, domain=HOST, path="/")
+        with mock.patch("odoo.http.router.db_filter") as db_filter:
+            db_filter.side_effect = lambda dbs, host=None: [get_db_name()]
+            response = self.url_open(
+                "/web/login",
+                data={
+                    "login": portal_login,
+                    "password": portal_pw,
+                    "csrf_token": self.csrf_token(),
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/web/reset_password", response.request.path_url)
         self.assertNotIn("Invalid signup token", response.text)

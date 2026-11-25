@@ -5,6 +5,7 @@ import json
 from uuid import uuid4
 
 from odoo import fields
+from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, tagged
 from odoo.tools import mute_logger
 
@@ -373,3 +374,15 @@ class TestImpersonateLogin(HttpCase):
             "You cannot impersonate users with "
             "'Administration: Settings' access rights.",
         )
+
+    def test_04_demo_user_cannot_read_or_tamper_impersonate_log(self):
+        log = self.env["impersonate.log"].sudo().create(
+            {
+                "user_id": self.admin_user.id,
+                "impersonated_partner_id": self.demo_user.partner_id.id,
+            }
+        )
+        with self.assertRaises(AccessError):
+            log.with_user(self.demo_user).read(["user_id"])
+        with self.assertRaises(AccessError):
+            log.with_user(self.demo_user).write({"user_id": self.demo_user.id})
