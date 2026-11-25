@@ -1,0 +1,52 @@
+name: validate-addons
+
+on:
+  pull_request:
+    branches: ["20.0-odoo360"]
+  push:
+    branches: ["20.0-odoo360"]
+  workflow_dispatch:
+
+jobs:
+  static-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ruff fatal & escape checks
+        run: |
+          pip install -q ruff
+          ruff check --select E9,F63,F7,F82,W605 --extend-exclude tools .
+      - name: XML well-formedness check
+        run: |
+          python3 - << 'PY'
+          import sys, xml.etree.ElementTree as ET
+          from pathlib import Path
+          errs = []
+          for p in sorted(Path(".").rglob("*.xml")):
+              if any(part.startswith(".") for part in p.parts):
+                  continue
+              try:
+                  ET.parse(p)
+              except ET.ParseError as exc:
+                  errs.append(f"{p}: {exc}")
+          if errs:
+              print("\n".join(errs), file=sys.stderr)
+              sys.exit(1)
+          print("All XML files parsed cleanly.")
+          PY
+      - name: Odoo 20 / OCA static validator (ci/validate_addon.py)
+        env:
+          GH_TOKEN: ${{ secrets.ODOO360_CI_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::notice::ODOO360_CI_TOKEN not configured on this repo; skipping remote ci/validate_addon.py fetch"
+            exit 0
+          fi
+          git clone -q --depth 1 --filter=blob:none --sparse \
+            "https://x-access-token:${GH_TOKEN}@github.com/ROBSOLUTION-TEC/odoo360-ops.git" /tmp/odoo360-ops
+          git -C /tmp/odoo360-ops sparse-checkout set ci/validate_addon.py
+          python3 /tmp/odoo360-ops/ci/validate_addon.py . --all --skip-uninstallable
